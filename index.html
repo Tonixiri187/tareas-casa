@@ -34,6 +34,7 @@
         .header {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             margin-bottom: 16px;
         }
 
@@ -41,6 +42,23 @@
             font-size: 20px;
             font-weight: bold;
             color: #1f2937;
+        }
+
+        .connection-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .connected {
+            background-color: #dcfce7;
+            color: #16a34a;
+        }
+
+        .disconnected {
+            background-color: #fef2f2;
+            color: #dc2626;
         }
 
         .user-selector {
@@ -302,6 +320,29 @@
             display: none;
         }
 
+        .setup-card {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .setup-card h3 {
+            color: #92400e;
+            margin-bottom: 8px;
+        }
+
+        .config-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            margin: 4px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
         @media (max-width: 768px) {
             .tasks-grid {
                 grid-template-columns: 1fr;
@@ -327,10 +368,36 @@
 </head>
 <body>
     <div class="container">
+        <!-- Setup Card -->
+        <div class="setup-card" id="setup-card">
+            <h3>🔧 Configuración inicial requerida</h3>
+            <p style="margin-bottom: 12px; font-size: 14px;">Para sincronizar entre dispositivos, introduce tu configuración de Firebase:</p>
+            
+            <label style="font-size: 12px; font-weight: 500;">API Key:</label>
+            <input type="text" class="config-input" id="apiKey" placeholder="AIza...">
+            
+            <label style="font-size: 12px; font-weight: 500;">Database URL:</label>
+            <input type="text" class="config-input" id="databaseURL" placeholder="https://tu-proyecto-default-rtdb.europe-west1.firebasedatabase.app/">
+            
+            <label style="font-size: 12px; font-weight: 500;">Project ID:</label>
+            <input type="text" class="config-input" id="projectId" placeholder="tu-proyecto">
+            
+            <button class="btn btn-primary" onclick="initializeFirebase()" style="margin-top: 8px;">
+                🔗 Conectar
+            </button>
+            
+            <p style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+                ℹ️ Obtén estos datos de la consola de Firebase → Configuración del proyecto → Config de SDK
+            </p>
+        </div>
+
         <!-- Header -->
-        <div class="card">
+        <div class="card" id="main-app" style="display: none;">
             <div class="header">
                 <h1>📅 Tareas del Hogar</h1>
+                <div class="connection-status" id="status">
+                    🔴 Desconectado
+                </div>
             </div>
             
             <!-- User Selector -->
@@ -352,7 +419,7 @@
         </div>
 
         <!-- Tasks Management -->
-        <div class="card">
+        <div class="card" id="tasks-card" style="display: none;">
             <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 12px;">Gestionar Tareas</h2>
             
             <div class="tasks-grid" id="tasks-grid"></div>
@@ -369,7 +436,7 @@
         </div>
 
         <!-- Calendar -->
-        <div class="card">
+        <div class="card" id="calendar-card" style="display: none;">
             <div class="calendar">
                 <div class="calendar-grid">
                     <div class="days-header" id="days-header"></div>
@@ -379,7 +446,7 @@
         </div>
 
         <!-- Legend -->
-        <div class="card">
+        <div class="card" id="legend-card" style="display: none;">
             <h3 style="font-size: 14px; font-weight: 500; margin-bottom: 8px;">Leyenda</h3>
             <div class="legend">
                 <div class="legend-item">
@@ -394,7 +461,7 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
         // Estado de la aplicación
         let currentUser = 'usuario';
         let selectedWeek = 0;
@@ -409,6 +476,8 @@
             'Baños'
         ];
         let schedule = {};
+        let database = null;
+        let connected = false;
 
         const users = {
             usuario: { name: 'Yo', color: '#3B82F6' },
@@ -423,6 +492,106 @@
             timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
             if (hour < 23) {
                 timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+            }
+        }
+
+        // Firebase functions
+        window.initializeFirebase = async function() {
+            const apiKey = document.getElementById('apiKey').value;
+            const databaseURL = document.getElementById('databaseURL').value;
+            const projectId = document.getElementById('projectId').value;
+
+            if (!apiKey || !databaseURL || !projectId) {
+                alert('Por favor completa todos los campos');
+                return;
+            }
+
+            try {
+                // Guardar configuración en localStorage
+                localStorage.setItem('firebaseConfig', JSON.stringify({
+                    apiKey, databaseURL, projectId
+                }));
+
+                // Importar Firebase
+                const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+                const { getDatabase, ref, set, push, remove, onValue } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+
+                // Inicializar Firebase
+                const firebaseConfig = {
+                    apiKey: apiKey,
+                    databaseURL: databaseURL,
+                    projectId: projectId,
+                };
+
+                const app = initializeApp(firebaseConfig);
+                database = getDatabase(app);
+
+                // Configurar listeners
+                setupFirebaseListeners(ref, set, push, remove, onValue);
+                
+                // Ocultar setup y mostrar app
+                document.getElementById('setup-card').style.display = 'none';
+                document.getElementById('main-app').style.display = 'block';
+                document.getElementById('tasks-card').style.display = 'block';
+                document.getElementById('calendar-card').style.display = 'block';
+                document.getElementById('legend-card').style.display = 'block';
+
+                updateConnectionStatus(true);
+                loadInitialData();
+                setupEventListeners();
+
+            } catch (error) {
+                console.error('Error inicializando Firebase:', error);
+                alert('Error conectando con Firebase. Verifica tu configuración.');
+            }
+        };
+
+        function setupFirebaseListeners(ref, set, push, remove, onValue) {
+            window.firebaseRef = ref;
+            window.firebaseSet = set;
+            window.firebasePush = push;
+            window.firebaseRemove = remove;
+
+            // Listener para tareas
+            onValue(ref(database, 'tasks'), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    tasks = data;
+                    renderTasks();
+                }
+            });
+
+            // Listener para horarios
+            onValue(ref(database, 'schedule'), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    schedule = data;
+                    renderCalendar();
+                }
+            });
+        }
+
+        function updateConnectionStatus(isConnected) {
+            connected = isConnected;
+            const status = document.getElementById('status');
+            if (isConnected) {
+                status.textContent = '🟢 Conectado';
+                status.className = 'connection-status connected';
+            } else {
+                status.textContent = '🔴 Desconectado';
+                status.className = 'connection-status disconnected';
+            }
+        }
+
+        async function loadInitialData() {
+            if (!database) return;
+
+            try {
+                // Cargar datos iniciales si no existen
+                await window.firebaseSet(window.firebaseRef(database, 'tasks'), tasks);
+                await window.firebaseSet(window.firebaseRef(database, 'schedule'), schedule);
+            } catch (error) {
+                console.error('Error cargando datos iniciales:', error);
             }
         }
 
@@ -461,6 +630,8 @@
 
         function renderTasks() {
             const grid = document.getElementById('tasks-grid');
+            if (!grid) return;
+            
             grid.innerHTML = '';
             
             tasks.forEach(task => {
@@ -479,6 +650,8 @@
             
             // Header
             const header = document.getElementById('days-header');
+            if (!header) return;
+            
             header.innerHTML = '<div class="time-header">Hora</div>';
             days.forEach((day, index) => {
                 const date = weekDates[index];
@@ -494,6 +667,8 @@
 
             // Body
             const body = document.getElementById('calendar-body');
+            if (!body) return;
+            
             body.innerHTML = '';
             
             timeSlots.forEach(timeSlot => {
@@ -528,7 +703,6 @@
         }
 
         function showTaskSelector(event, day, timeSlot) {
-            // Remover selectores existentes
             document.querySelectorAll('.task-selector').forEach(el => el.remove());
             
             const selector = document.createElement('div');
@@ -544,40 +718,66 @@
             event.target.appendChild(selector);
         }
 
-        function assignTask(day, timeSlot, task) {
+        window.assignTask = async function(day, timeSlot, task) {
             const key = `${day}-${timeSlot}`;
-            schedule[key] = {
+            const assignment = {
                 task: task,
                 user: currentUser,
                 color: users[currentUser].color
             };
             
-            // Remover selector
-            document.querySelectorAll('.task-selector').forEach(el => el.remove());
+            schedule[key] = assignment;
             
+            if (database && connected) {
+                try {
+                    await window.firebaseSet(window.firebaseRef(database, `schedule/${key}`), assignment);
+                } catch (error) {
+                    console.error('Error guardando asignación:', error);
+                }
+            }
+            
+            document.querySelectorAll('.task-selector').forEach(el => el.remove());
             renderCalendar();
-        }
+        };
 
-        function removeAssignment(day, timeSlot) {
+        window.removeAssignment = async function(day, timeSlot) {
             const key = `${day}-${timeSlot}`;
             delete schedule[key];
+            
+            if (database && connected) {
+                try {
+                    await window.firebaseRemove(window.firebaseRef(database, `schedule/${key}`));
+                } catch (error) {
+                    console.error('Error eliminando asignación:', error);
+                }
+            }
+            
             renderCalendar();
-        }
+        };
 
-        function addTask() {
+        window.addTask = async function() {
             const input = document.getElementById('new-task-input');
             const newTask = input.value.trim();
             
             if (newTask && !tasks.includes(newTask)) {
                 tasks.push(newTask);
+                
+                if (database && connected) {
+                    try {
+                        await window.firebaseSet(window.firebaseRef(database, 'tasks'), tasks);
+                    } catch (error) {
+                        console.error('Error guardando tarea:', error);
+                    }
+                }
+                
                 input.value = '';
                 document.getElementById('add-task-form').classList.add('hidden');
                 document.getElementById('show-add-task').classList.remove('hidden');
                 renderTasks();
             }
-        }
+        };
 
-        function removeTask(taskToRemove) {
+        window.removeTask = async function(taskToRemove) {
             tasks = tasks.filter(task => task !== taskToRemove);
             
             // Remover del horario también
@@ -587,12 +787,20 @@
                 }
             });
             
+            if (database && connected) {
+                try {
+                    await window.firebaseSet(window.firebaseRef(database, 'tasks'), tasks);
+                    await window.firebaseSet(window.firebaseRef(database, 'schedule'), schedule);
+                } catch (error) {
+                    console.error('Error eliminando tarea:', error);
+                }
+            }
+            
             renderTasks();
             renderCalendar();
-        }
+        };
 
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', function() {
+        function setupEventListeners() {
             // User selector
             document.querySelectorAll('.user-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -627,11 +835,11 @@
                 document.getElementById('new-task-input').value = '';
             });
 
-            document.getElementById('add-task-btn').addEventListener('click', addTask);
+            document.getElementById('add-task-btn').addEventListener('click', window.addTask);
 
             document.getElementById('new-task-input').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    addTask();
+                    window.addTask();
                 }
             });
 
@@ -647,6 +855,26 @@
             updateWeekInfo();
             renderTasks();
             renderCalendar();
+        }
+
+        // Auto-inicializar si ya hay configuración guardada
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedConfig = localStorage.getItem('firebaseConfig');
+            if (savedConfig) {
+                try {
+                    const config = JSON.parse(savedConfig);
+                    document.getElementById('apiKey').value = config.apiKey;
+                    document.getElementById('databaseURL').value = config.databaseURL;
+                    document.getElementById('projectId').value = config.projectId;
+                    
+                    // Auto-conectar si está todo completo
+                    if (config.apiKey && config.databaseURL && config.projectId) {
+                        window.initializeFirebase();
+                    }
+                } catch (error) {
+                    console.error('Error cargando configuración guardada:', error);
+                }
+            }
         });
     </script>
 </body>
