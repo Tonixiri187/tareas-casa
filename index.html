@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organizador de Tareas del Hogar</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f9fafb;
+            min-height: 100vh;
+            padding: 8px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1f2937;
+        }
+
+        .user-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .user-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        .user-btn:not(.active) {
+            background-color: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .user-btn.active {
+            color: white;
+        }
+
+        .week-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .nav-btn {
+            padding: 6px 12px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .nav-btn:hover {
+            background-color: #2563eb;
+        }
+
+        .week-info {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .tasks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f3f4f6;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .delete-btn:hover {
+            color: #dc2626;
+        }
+
+        .add-task-form {
+            display: flex;
+            gap: 8px;
+        }
+
+        .add-task-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .btn-success {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+
+        .calendar {
+            overflow-x: auto;
+        }
+
+        .calendar-grid {
+            min-width: 800px;
+        }
+
+        .days-header {
+            display: grid;
+            grid-template-columns: 80px repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+
+        .day-header {
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 500;
+            color: #1f2937;
+        }
+
+        .time-header {
+            padding: 8px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .time-row {
+            display: grid;
+            grid-template-columns: 80px repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .time-slot {
+            padding: 4px;
+            font-size: 10px;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+        }
+
+        .task-slot {
+            height: 48px;
+            border: 2px dashed #d1d5db;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #9ca3af;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .task-slot:hover {
+            border-color: #9ca3af;
+            background-color: #f9fafb;
+        }
+
+        .task-slot.assigned {
+            border: none;
+            color: white;
+            font-size: 10px;
+            padding: 4px;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .task-content {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .user-indicator {
+            font-size: 8px;
+            opacity: 0.75;
+        }
+
+        .task-selector {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 10;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 8px;
+            width: 200px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .task-option {
+            display: block;
+            width: 100%;
+            padding: 6px;
+            text-align: left;
+            border: none;
+            background: none;
+            font-size: 12px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .task-option:hover {
+            background-color: #f3f4f6;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .tasks-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .add-task-form {
+                flex-direction: column;
+            }
+            
+            .calendar-grid {
+                min-width: 600px;
+            }
+            
+            .days-header {
+                grid-template-columns: 60px repeat(7, 1fr);
+            }
+            
+            .time-row {
+                grid-template-columns: 60px repeat(7, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="card">
+            <div class="header">
+                <h1>📅 Tareas del Hogar</h1>
+            </div>
+            
+            <!-- User Selector -->
+            <div class="user-selector">
+                <button class="user-btn active" data-user="usuario" id="btn-usuario">
+                    👤 Yo
+                </button>
+                <button class="user-btn" data-user="esposa" id="btn-esposa">
+                    👤 Mi Esposa
+                </button>
+            </div>
+
+            <!-- Week Navigation -->
+            <div class="week-nav">
+                <button class="nav-btn" id="prev-week">← Anterior</button>
+                <span class="week-info" id="week-info"></span>
+                <button class="nav-btn" id="next-week">Siguiente →</button>
+            </div>
+        </div>
+
+        <!-- Tasks Management -->
+        <div class="card">
+            <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 12px;">Gestionar Tareas</h2>
+            
+            <div class="tasks-grid" id="tasks-grid"></div>
+
+            <div id="add-task-form" class="hidden">
+                <div class="add-task-form">
+                    <input type="text" class="add-task-input" id="new-task-input" placeholder="Nueva tarea...">
+                    <button class="btn btn-success" id="add-task-btn">Añadir</button>
+                    <button class="btn btn-secondary" id="cancel-task-btn">Cancelar</button>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="show-add-task">➕ Nueva Tarea</button>
+        </div>
+
+        <!-- Calendar -->
+        <div class="card">
+            <div class="calendar">
+                <div class="calendar-grid">
+                    <div class="days-header" id="days-header"></div>
+                    <div id="calendar-body"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="card">
+            <h3 style="font-size: 14px; font-weight: 500; margin-bottom: 8px;">Leyenda</h3>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #3B82F6;"></div>
+                    <span>Yo</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #EC4899;"></div>
+                    <span>Mi Esposa</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Estado de la aplicación
+        let currentUser = 'usuario';
+        let selectedWeek = 0;
+        let tasks = [
+            'Hacer la cena',
+            'Poner lavadoras', 
+            'Limpiar cocina',
+            'Barrer y fregar',
+            'Limpiar platos',
+            'Doblar ropa',
+            'Limpiar polvo',
+            'Baños'
+        ];
+        let schedule = {};
+
+        const users = {
+            usuario: { name: 'Yo', color: '#3B82F6' },
+            esposa: { name: 'Mi Esposa', color: '#EC4899' }
+        };
+
+        const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+        const timeSlots = [];
+        
+        // Generar slots de 30 minutos
+        for (let hour = 6; hour < 24; hour++) {
+            timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+            if (hour < 23) {
+                timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+            }
+        }
+
+        // Funciones auxiliares
+        function getWeekDates(weekOffset = 0) {
+            const today = new Date();
+            const currentDay = today.getDay();
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1) + (weekOffset * 7));
+            
+            return days.map((_, index) => {
+                const date = new Date(monday);
+                date.setDate(monday.getDate() + index);
+                return date;
+            });
+        }
+
+        function updateUserSelector() {
+            document.querySelectorAll('.user-btn').forEach(btn => {
+                if (btn.dataset.user === currentUser) {
+                    btn.classList.add('active');
+                    btn.style.backgroundColor = users[currentUser].color;
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.backgroundColor = '';
+                }
+            });
+        }
+
+        function updateWeekInfo() {
+            const weekDates = getWeekDates(selectedWeek);
+            const start = weekDates[0].toLocaleDateString('es-ES');
+            const end = weekDates[6].toLocaleDateString('es-ES');
+            document.getElementById('week-info').textContent = `${start} - ${end}`;
+        }
+
+        function renderTasks() {
+            const grid = document.getElementById('tasks-grid');
+            grid.innerHTML = '';
+            
+            tasks.forEach(task => {
+                const item = document.createElement('div');
+                item.className = 'task-item';
+                item.innerHTML = `
+                    <span>${task}</span>
+                    <button class="delete-btn" onclick="removeTask('${task}')">🗑️</button>
+                `;
+                grid.appendChild(item);
+            });
+        }
+
+        function renderCalendar() {
+            const weekDates = getWeekDates(selectedWeek);
+            
+            // Header
+            const header = document.getElementById('days-header');
+            header.innerHTML = '<div class="time-header">Hora</div>';
+            days.forEach((day, index) => {
+                const date = weekDates[index];
+                header.innerHTML += `
+                    <div class="day-header">
+                        <div>${day}</div>
+                        <div style="color: #6b7280; font-size: 10px;">
+                            ${date.getDate()}/${date.getMonth() + 1}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Body
+            const body = document.getElementById('calendar-body');
+            body.innerHTML = '';
+            
+            timeSlots.forEach(timeSlot => {
+                const row = document.createElement('div');
+                row.className = 'time-row';
+                row.innerHTML = `<div class="time-slot">🕐 ${timeSlot}</div>`;
+                
+                days.forEach((day, dayIndex) => {
+                    const key = `${dayIndex}-${timeSlot}`;
+                    const assignment = schedule[key];
+                    
+                    if (assignment) {
+                        row.innerHTML += `
+                            <div class="task-slot assigned" 
+                                 style="background-color: ${assignment.color}" 
+                                 onclick="removeAssignment('${dayIndex}', '${timeSlot}')">
+                                <div class="task-content">${assignment.task}</div>
+                                <div class="user-indicator">${users[assignment.user].name}</div>
+                            </div>
+                        `;
+                    } else {
+                        row.innerHTML += `
+                            <div class="task-slot" onclick="showTaskSelector(event, '${dayIndex}', '${timeSlot}')">
+                                +
+                            </div>
+                        `;
+                    }
+                });
+                
+                body.appendChild(row);
+            });
+        }
+
+        function showTaskSelector(event, day, timeSlot) {
+            // Remover selectores existentes
+            document.querySelectorAll('.task-selector').forEach(el => el.remove());
+            
+            const selector = document.createElement('div');
+            selector.className = 'task-selector';
+            
+            let html = '';
+            tasks.forEach(task => {
+                html += `<button class="task-option" onclick="assignTask('${day}', '${timeSlot}', '${task}')">${task}</button>`;
+            });
+            html += `<button class="task-option" onclick="this.parentElement.remove()">Cancelar</button>`;
+            
+            selector.innerHTML = html;
+            event.target.appendChild(selector);
+        }
+
+        function assignTask(day, timeSlot, task) {
+            const key = `${day}-${timeSlot}`;
+            schedule[key] = {
+                task: task,
+                user: currentUser,
+                color: users[currentUser].color
+            };
+            
+            // Remover selector
+            document.querySelectorAll('.task-selector').forEach(el => el.remove());
+            
+            renderCalendar();
+        }
+
+        function removeAssignment(day, timeSlot) {
+            const key = `${day}-${timeSlot}`;
+            delete schedule[key];
+            renderCalendar();
+        }
+
+        function addTask() {
+            const input = document.getElementById('new-task-input');
+            const newTask = input.value.trim();
+            
+            if (newTask && !tasks.includes(newTask)) {
+                tasks.push(newTask);
+                input.value = '';
+                document.getElementById('add-task-form').classList.add('hidden');
+                document.getElementById('show-add-task').classList.remove('hidden');
+                renderTasks();
+            }
+        }
+
+        function removeTask(taskToRemove) {
+            tasks = tasks.filter(task => task !== taskToRemove);
+            
+            // Remover del horario también
+            Object.keys(schedule).forEach(key => {
+                if (schedule[key].task === taskToRemove) {
+                    delete schedule[key];
+                }
+            });
+            
+            renderTasks();
+            renderCalendar();
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // User selector
+            document.querySelectorAll('.user-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    currentUser = this.dataset.user;
+                    updateUserSelector();
+                });
+            });
+
+            // Week navigation
+            document.getElementById('prev-week').addEventListener('click', function() {
+                selectedWeek--;
+                updateWeekInfo();
+                renderCalendar();
+            });
+
+            document.getElementById('next-week').addEventListener('click', function() {
+                selectedWeek++;
+                updateWeekInfo();
+                renderCalendar();
+            });
+
+            // Task management
+            document.getElementById('show-add-task').addEventListener('click', function() {
+                this.classList.add('hidden');
+                document.getElementById('add-task-form').classList.remove('hidden');
+                document.getElementById('new-task-input').focus();
+            });
+
+            document.getElementById('cancel-task-btn').addEventListener('click', function() {
+                document.getElementById('add-task-form').classList.add('hidden');
+                document.getElementById('show-add-task').classList.remove('hidden');
+                document.getElementById('new-task-input').value = '';
+            });
+
+            document.getElementById('add-task-btn').addEventListener('click', addTask);
+
+            document.getElementById('new-task-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addTask();
+                }
+            });
+
+            // Cerrar selectores al hacer clic fuera
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.task-selector') && !e.target.closest('.task-slot')) {
+                    document.querySelectorAll('.task-selector').forEach(el => el.remove());
+                }
+            });
+
+            // Inicialización
+            updateUserSelector();
+            updateWeekInfo();
+            renderTasks();
+            renderCalendar();
+        });
+    </script>
+</body>
+</html>
